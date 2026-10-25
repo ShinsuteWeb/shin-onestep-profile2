@@ -7,7 +7,7 @@ const SUPABASE_URL="https://dtihrpjoengpakwipehl.supabase.co", SUPABASE_KEY="sb_
 const ITERATIONS=600000, AAD=new TextEncoder().encode("shin-onestep-profile-v1");
 function todayInJapan(){const p=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`}
 function formatJapaneseDate(iso){const [y,m,d]=(iso||"2026-10-24").split("-").map(Number);return `${y}年${m}月${d}日`}
-function initialProfileDate(card){const cell=[...card.querySelectorAll("td")].find(td=>/^加入日\\s*[：:]/.test(td.querySelector("strong")?.textContent.trim()||"")),match=cell?.textContent.match(/(\\d{4})年(\\d{1,2})月(\\d{1,2})日/);return match?`${match[1]}-${match[2].padStart(2,"0")}-${match[3].padStart(2,"0")}`:todayInJapan()}
+function initialProfileDate(card){const cell=[...card.querySelectorAll("td")].find(td=>/^加入日\s*[：:]/.test(td.querySelector("strong")?.textContent.trim()||"")),match=cell?.textContent.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);return match?`${match[1]}-${match[2].padStart(2,"0")}-${match[3].padStart(2,"0")}`:todayInJapan()}
 const enc=x=>new TextEncoder().encode(x), fromHex=s=>Uint8Array.from(s.match(/../g).map(x=>parseInt(x,16)));
 async function derive(password,salt){const material=await crypto.subtle.importKey("raw",enc(password),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:ITERATIONS,hash:"SHA-256"},material,{name:"AES-GCM",length:256},false,["decrypt","encrypt"])}
 
