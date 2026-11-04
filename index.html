@@ -52,4 +52,39 @@ function renderSite(data){pages=data;
   document.getElementById("gate").style.display="none";site.style.display="block";
 }
 document.getElementById("form").addEventListener("submit",async e=>{e.preventDefault();const msg=document.getElementById("error"),key=document.getElementById("key").value;msg.textContent="";try{viewPassword=key;let box;try{box=await supabaseRpc("get_profile_bundle",{});if(!box||!box.ciphertext)throw 0}catch{const r=await fetch("profiles.enc.json",{cache:"no-store"});if(!r.ok)throw 0;box=await r.json()}const cryptoKey=await derive(key,fromHex(box.salt)),encrypted=await crypto.subtle.decrypt({name:"AES-GCM",iv:fromHex(box.nonce),additionalData:AAD},cryptoKey,fromHex(box.ciphertext)),plain=await new Response(new Blob([encrypted]).stream().pipeThrough(new DecompressionStream("deflate"))).arrayBuffer();renderSite(JSON.parse(new TextDecoder().decode(plain)))}catch(err){console.error(err);msg.textContent=`読み込みエラー: ${err.name} ${err.message}`}});
-</script></body></html>
+</script><script>
+/* シンOneStepポータル連携（追加分：既存のパスワードゲート・編集機能はそのまま） */
+(function(){
+
+  var KEY='onestep.portal.v1';
+  function read(){try{var j=JSON.parse(localStorage.getItem(KEY)||'null');if(!j||!j.pw||!j.exp)return null;if(Date.now()>j.exp){localStorage.removeItem(KEY);return null;}return j.pw;}catch(e){return null;}}
+  function save(pw){try{localStorage.setItem(KEY,JSON.stringify({pw:pw,exp:Date.now()+30*24*60*60*1000}));}catch(e){}}
+  function clearStore(){try{localStorage.removeItem(KEY);}catch(e){}}
+
+  var ITER=600000,AAD=new TextEncoder().encode('shin-onestep-profile-v1');
+  function enc(s){return new TextEncoder().encode(s);}
+  function fromHex(h){var a=new Uint8Array(h.length/2);for(var i=0;i<a.length;i++){a[i]=parseInt(h.substr(i*2,2),16);}return a;}
+  async function tryDecrypt(pw){
+    var box=null;
+    try{
+      var r=await fetch('https://dtihrpjoengpakwipehl.supabase.co/rest/v1/rpc/get_profile_bundle',{method:'POST',headers:{'apikey':'sb_publishable__d5BEd58nkRFmlfbneFvfw_nyBCzvIX','Authorization':'Bearer sb_publishable__d5BEd58nkRFmlfbneFvfw_nyBCzvIX','Content-Type':'application/json'},body:'{}'});
+      if(r.ok){box=await r.json();}
+    }catch(e){}
+    if(!box||!box.ciphertext){
+      var r2=await fetch('profiles.enc.json',{cache:'no-store'});
+      if(!r2.ok){throw new Error('bundle fetch failed');}
+      box=await r2.json();
+    }
+    var material=await crypto.subtle.importKey('raw',enc(pw),'PBKDF2',false,['deriveKey']);
+    var key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:fromHex(box.salt),iterations:ITER,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['decrypt']);
+    await crypto.subtle.decrypt({name:'AES-GCM',iv:fromHex(box.nonce),additionalData:AAD},key,fromHex(box.ciphertext));
+    return true;
+  }
+  var form=document.getElementById('form'),input=document.getElementById('key');
+  if(!form||!input){return;}
+  var pw=read();
+  if(pw){tryDecrypt(pw).then(function(){input.value=pw;if(form.requestSubmit){form.requestSubmit();}else{form.dispatchEvent(new Event('submit',{cancelable:true}));}}).catch(function(){clearStore();});}
+  form.addEventListener('submit',function(){var v=input.value;if(v){tryDecrypt(v).then(function(){save(v);}).catch(function(){});}});
+})();
+</script>
+</body></html>
